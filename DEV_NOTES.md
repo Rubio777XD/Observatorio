@@ -13,3 +13,10 @@
 - Añadidos tests de humo con `pytest` (health y favoritos sin token) y documentado ejecución de pruebas.
 - Actualizados README (raíz y backend) y `backend/db_schema_overview.md` con 12 tablas totales y ejemplos de uso.
 - `docker compose up` no se pudo ejecutar en este entorno porque el binario `docker` no está disponible.
+
+## 2025-12-06
+- Integrado flujo completo de autenticación en frontend (login/registro, guardado de token y estado global) mostrando rol y cierre de sesión.
+- Nueva UI React con mapa Leaflet y vista de datos que consumen `GET /cuerpos-agua` en vivo; eliminada la dependencia de HTML estático.
+- Botón “Registrar cuerpo de agua” visible solo para roles admin/analista; formulario protegido envía `POST /cuerpos-agua` y recarga mapa/tabla.
+- Modelo `cuerpos_agua` ahora guarda `creado_por_id`; `POST/PUT/DELETE /cuerpos-agua` requieren rol y registran eventos en `logs_acceso`, generando reporte inicial.
+- Actualizadas documentaciones (README, backend/README, db_schema_overview) para reflejar autenticación web y CRUD protegido.

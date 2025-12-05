@@ -3,7 +3,7 @@
 Plataforma web para monitoreo y análisis de cuerpos de agua. Incluye un backend en FastAPI con autenticación JWT y un frontend en React.
 
 ## 🏗️ Arquitectura
-- **Frontend:** React 18 + Vite + Tailwind + React Leaflet (`observatorio-aguas`).
+- **Frontend:** React 18 + Vite + Tailwind + React Leaflet (`observatorio-aguas`), con flujo de login/registro y creación de cuerpos de agua protegida por JWT.
 - **Backend:** FastAPI + SQLAlchemy + SQLite (`backend`), hashing PBKDF2 para contraseñas y JWT HS256.
 - **Orquestación:** Docker/Docker Compose para levantar frontend y backend juntos.
 
@@ -27,6 +27,7 @@ npm run dev -- --host --port 5173
 ```
 - Interfaz disponible en `http://localhost:5173`.
 - Configura `VITE_API_URL` para apuntar al backend.
+- El botón “Registrar cuerpo de agua” solo aparece para roles `admin`/`analista` autenticados; usa el token guardado en `localStorage` (`observatorio_token`).
 
 ### Docker Compose
 ```bash
@@ -55,6 +56,7 @@ Flujo básico:
    ```
 - Contraseñas guardadas con PBKDF2-SHA256 + salt.
 - Rutas de escritura (cuerpos de agua, sensores, etc.) requieren token Bearer.
+- El frontend consume `/auth/register`, `/auth/login` y `/auth/me` para manejar sesión y mostrar el rol del usuario activo.
 
 ## 🗄️ Esquema de base de datos
 - **Total de tablas:** 12 (1 existente + 11 nuevas).
@@ -67,7 +69,8 @@ Flujo básico:
 ## 📚 Endpoints destacados
 - Salud: `GET /health`, raíz `GET /`.
 - Autenticación: `POST /auth/register`, `POST /auth/login`, `GET /auth/me`.
-- Datos: `GET/POST /cuerpos-agua`, `GET/POST /sensores`, `GET/POST /parametros`, `GET/POST /lecturas`, `GET/POST /alertas`, `GET/POST /zonas-protegidas`, `GET/POST /reportes`, `GET/POST /favoritos`, `GET/POST /cuerpo-parametros`.
+- Cuerpos de agua: `GET /cuerpos-agua`, `GET /cuerpos-agua/{id}` públicos; `POST/PUT/DELETE /cuerpos-agua` protegidos (roles admin/analista) que almacenan `creado_por_id` y generan logs en `logs_acceso`.
+- Datos: `GET/POST /sensores`, `GET/POST /parametros`, `GET/POST /lecturas`, `GET/POST /alertas`, `GET/POST /zonas-protegidas`, `GET/POST /reportes`, `GET/POST /favoritos`, `GET/POST /cuerpo-parametros`.
 - Utilidades: `GET /estadisticas`, `GET /roles`.
 
 ## 🧪 Tests rápidos

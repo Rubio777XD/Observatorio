@@ -5,7 +5,7 @@ Hay **12 tablas** totales: 1 heredada del proyecto original y 11 agregadas en la
 
 ## Tablas existentes
 - **cuerpos_agua** (existente): id, nombre, tipo, latitud, longitud, contaminacion, biodiversidad,
-  descripcion, temperatura, ph, oxigeno_disuelto, fecha_creacion, fecha_actualizacion.
+  descripcion, temperatura, ph, oxigeno_disuelto, fecha_creacion, fecha_actualizacion, creado_por_id (FK users).
   Relaciones: sensores, lecturas_sensores, alertas, reportes, user_favorites, zonas_protegidas, cuerpo_parametros.
 
 ## Tablas nuevas
