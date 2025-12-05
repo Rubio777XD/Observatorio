@@ -20,6 +20,13 @@ export default function WaterBodyFormModal({ open, onClose, onSubmit }) {
 
   if (!open) return null;
 
+  const formatDetail = (detail) => {
+    if (Array.isArray(detail)) return detail.map((d) => d?.msg || JSON.stringify(d)).join(' | ');
+    if (typeof detail === 'string') return detail;
+    if (detail?.msg) return detail.msg;
+    return '';
+  };
+
   const handleChange = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
@@ -45,14 +52,31 @@ export default function WaterBodyFormModal({ open, onClose, onSubmit }) {
         descripcion: '',
       });
     } catch (err) {
-      setError(err?.response?.data?.detail || 'No se pudo registrar el cuerpo de agua');
+      const formatted = formatDetail(err?.response?.data?.detail) || 'No se pudo registrar el cuerpo de agua';
+      setError(formatted);
     } finally {
       setLoading(false);
     }
   };
 
   return createPortal(
-    <div className="modal-backdrop" role="dialog" aria-modal="true" style={{ zIndex: 9999, backgroundColor: 'rgba(15,23,42,0.35)' }}>
+    <div
+      className="modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        backgroundColor: 'rgba(15,23,42,0.35)',
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div className="bg-white shadow-xl rounded-2xl w-full max-w-2xl mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold text-slate-800">Registrar cuerpo de agua</h3>
