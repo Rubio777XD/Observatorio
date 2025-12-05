@@ -7,15 +7,20 @@ export default function RegisterModal({ open, onClose, onSubmit }) {
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
   if (!open) return null;
 
+  const formatDetail = (detail) => {
+    if (Array.isArray(detail)) return detail.map((d) => d?.msg || JSON.stringify(d)).join(' | ');
+    if (typeof detail === 'string') return detail;
+    if (detail?.msg) return detail.msg;
+    return '';
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
-    setSuccess('');
     if (password !== passwordConfirm) {
       setError('Las contraseñas no coinciden');
       return;
@@ -23,20 +28,37 @@ export default function RegisterModal({ open, onClose, onSubmit }) {
     try {
       setLoading(true);
       await onSubmit({ email, password, fullName });
-      setSuccess('Registro exitoso. Ahora puedes iniciar sesión.');
       setFullName('');
       setEmail('');
       setPassword('');
       setPasswordConfirm('');
+      onClose();
     } catch (err) {
-      setError(err?.response?.data?.detail || 'No se pudo completar el registro');
+      const formatted = formatDetail(err?.response?.data?.detail) || 'No se pudo completar el registro';
+      setError(formatted);
     } finally {
       setLoading(false);
     }
   };
 
   return createPortal(
-    <div className="modal-backdrop" role="dialog" aria-modal="true" style={{ zIndex: 9999, backgroundColor: 'rgba(15,23,42,0.35)' }}>
+    <div
+      className="modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        backgroundColor: 'rgba(15,23,42,0.35)',
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div className="bg-white shadow-xl rounded-2xl w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold text-slate-800">Crear cuenta</h3>
@@ -45,7 +67,6 @@ export default function RegisterModal({ open, onClose, onSubmit }) {
           </button>
         </div>
         {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
-        {success && <p className="text-green-600 text-sm mb-3">{success}</p>}
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
             <label className="block text-sm font-medium text-slate-700">Nombre completo</label>

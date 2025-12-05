@@ -535,7 +535,6 @@ async def crear_cuerpo_agua(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    require_role(current_user, ["admin", "analista"])
     existente = db.query(CuerpoDeAguaDB).filter(CuerpoDeAguaDB.nombre.ilike(cuerpo.nombre)).first()
     if existente:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El cuerpo de agua ya existe")

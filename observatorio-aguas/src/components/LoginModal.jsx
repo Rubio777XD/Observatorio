@@ -9,6 +9,13 @@ export default function LoginModal({ open, onClose, onSubmit }) {
 
   if (!open) return null;
 
+  const formatDetail = (detail) => {
+    if (Array.isArray(detail)) return detail.map((d) => d?.msg || JSON.stringify(d)).join(' | ');
+    if (typeof detail === 'string') return detail;
+    if (detail?.msg) return detail.msg;
+    return '';
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
@@ -19,14 +26,31 @@ export default function LoginModal({ open, onClose, onSubmit }) {
       setEmail('');
       setPassword('');
     } catch (err) {
-      setError(err?.response?.data?.detail || 'No se pudo iniciar sesión');
+      const formatted = formatDetail(err?.response?.data?.detail) || 'No se pudo iniciar sesión';
+      setError(formatted);
     } finally {
       setLoading(false);
     }
   };
 
   return createPortal(
-    <div className="modal-backdrop" role="dialog" aria-modal="true" style={{ zIndex: 9999, backgroundColor: 'rgba(15,23,42,0.35)' }}>
+    <div
+      className="modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        backgroundColor: 'rgba(15,23,42,0.35)',
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div className="bg-white shadow-xl rounded-2xl w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold text-slate-800">Iniciar sesión</h3>

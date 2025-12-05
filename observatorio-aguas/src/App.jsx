@@ -195,6 +195,15 @@ function AppContent() {
     }
   };
 
+  const handleRegister = async (payload) => {
+    const result = await register(payload);
+    setRegisterOpen(false);
+    setLoginOpen(true);
+    setAlerta('Registro exitoso. Ahora puedes iniciar sesión.');
+    setTimeout(() => setAlerta(''), 4000);
+    return result;
+  };
+
   return (
     <div className="app-shell min-h-screen">
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
@@ -302,7 +311,7 @@ function AppContent() {
       </div>
 
       <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} onSubmit={login} />
-      <RegisterModal open={registerOpen} onClose={() => setRegisterOpen(false)} onSubmit={register} />
+      <RegisterModal open={registerOpen} onClose={() => setRegisterOpen(false)} onSubmit={handleRegister} />
       <WaterBodyFormModal open={formOpen && puedeCrear} onClose={() => setFormOpen(false)} onSubmit={handleCreate} />
     </div>
   );
