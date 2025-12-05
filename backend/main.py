@@ -3,7 +3,7 @@ import logging
 import os
 from typing import List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import base64
@@ -90,24 +90,7 @@ class RoleOut(BaseModel):
         from_attributes = True
 
 
-class CuerpoDeAgua(BaseModel):
-    id: int
-    nombre: str
-    tipo: str
-    latitud: float
-    longitud: float
-    contaminacion: str
-    biodiversidad: str
-    descripcion: Optional[str]
-    temperatura: Optional[float]
-    ph: Optional[float]
-    oxigeno_disuelto: Optional[float]
-
-    class Config:
-        from_attributes = True
-
-
-class CuerpoDeAguaCreate(BaseModel):
+class CuerpoDeAguaBase(BaseModel):
     nombre: str
     tipo: str
     latitud: float
@@ -118,6 +101,33 @@ class CuerpoDeAguaCreate(BaseModel):
     temperatura: Optional[float] = None
     ph: Optional[float] = None
     oxigeno_disuelto: Optional[float] = None
+
+
+class CuerpoDeAguaCreate(CuerpoDeAguaBase):
+    pass
+
+
+class CuerpoDeAguaUpdate(BaseModel):
+    nombre: Optional[str] = None
+    tipo: Optional[str] = None
+    latitud: Optional[float] = None
+    longitud: Optional[float] = None
+    contaminacion: Optional[str] = None
+    biodiversidad: Optional[str] = None
+    descripcion: Optional[str] = None
+    temperatura: Optional[float] = None
+    ph: Optional[float] = None
+    oxigeno_disuelto: Optional[float] = None
+
+
+class CuerpoDeAguaOut(CuerpoDeAguaBase):
+    id: int
+    fecha_creacion: datetime
+    fecha_actualizacion: datetime
+    creado_por_id: Optional[int]
+
+    class Config:
+        from_attributes = True
 
 
 class SensorCreate(BaseModel):
@@ -377,16 +387,35 @@ def get_user_by_email(db: Session, email: str) -> Optional[User]:
     return db.query(User).filter(User.email == email).first()
 
 
-def log_access(db: Session, user: Optional[User], endpoint: str, method: str, status_code: int):
+def log_access(
+    db: Session,
+    user: Optional[User],
+    endpoint: str,
+    method: str,
+    status_code: int,
+    *,
+    cuerpo_agua_id: Optional[int] = None,
+    ip: Optional[str] = None,
+):
     registro = AccessLog(
         usuario_id=user.id if user else None,
         endpoint=endpoint,
         metodo=method,
         codigo_respuesta=status_code,
-        ip="0.0.0.0",
+        ip=ip,
+        cuerpo_agua_id=cuerpo_agua_id,
     )
     db.add(registro)
     db.commit()
+
+
+def require_role(user: User, allowed_roles: List[str]):
+    role = user.role.nombre if user.role else None
+    if role not in allowed_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permisos para realizar esta acción",
+        )
 
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
@@ -481,13 +510,13 @@ def list_roles(db: Session = Depends(get_db)):
 
 
 # Cuerpos de agua
-@app.get("/cuerpos-agua", response_model=List[CuerpoDeAgua])
+@app.get("/cuerpos-agua", response_model=List[CuerpoDeAguaOut])
 async def obtener_cuerpos_agua(db: Session = Depends(get_db)):
     cuerpos = db.query(CuerpoDeAguaDB).all()
     return cuerpos
 
 
-@app.get("/cuerpos-agua/{cuerpo_id}", response_model=CuerpoDeAgua)
+@app.get("/cuerpos-agua/{cuerpo_id}", response_model=CuerpoDeAguaOut)
 async def obtener_cuerpo_agua(cuerpo_id: int, db: Session = Depends(get_db)):
     cuerpo = db.query(CuerpoDeAguaDB).filter(CuerpoDeAguaDB.id == cuerpo_id).first()
     if not cuerpo:
@@ -495,17 +524,103 @@ async def obtener_cuerpo_agua(cuerpo_id: int, db: Session = Depends(get_db)):
     return cuerpo
 
 
-@app.post("/cuerpos-agua", response_model=CuerpoDeAgua, status_code=status.HTTP_201_CREATED)
-async def crear_cuerpo_agua(cuerpo: CuerpoDeAguaCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+@app.post(
+    "/cuerpos-agua",
+    response_model=CuerpoDeAguaOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def crear_cuerpo_agua(
+    cuerpo: CuerpoDeAguaCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    require_role(current_user, ["admin", "analista"])
     existente = db.query(CuerpoDeAguaDB).filter(CuerpoDeAguaDB.nombre.ilike(cuerpo.nombre)).first()
     if existente:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El cuerpo de agua ya existe")
 
-    db_cuerpo = CuerpoDeAguaDB(**cuerpo.dict())
+    db_cuerpo = CuerpoDeAguaDB(**cuerpo.dict(), creado_por_id=current_user.id)
     db.add(db_cuerpo)
     db.commit()
     db.refresh(db_cuerpo)
+
+    reporte_inicial = Report(
+        cuerpo_agua_id=db_cuerpo.id,
+        usuario_id=current_user.id,
+        titulo=f"Registro inicial de {db_cuerpo.nombre}",
+        contenido=db_cuerpo.descripcion or "Alta creada desde la interfaz",
+    )
+    db.add(reporte_inicial)
+    db.commit()
+
+    log_access(
+        db,
+        current_user,
+        endpoint="/cuerpos-agua",
+        method="POST",
+        status_code=status.HTTP_201_CREATED,
+        cuerpo_agua_id=db_cuerpo.id,
+        ip=request.client.host if request.client else None,
+    )
     return db_cuerpo
+
+
+@app.put("/cuerpos-agua/{cuerpo_id}", response_model=CuerpoDeAguaOut)
+async def actualizar_cuerpo_agua(
+    cuerpo_id: int,
+    payload: CuerpoDeAguaUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    require_role(current_user, ["admin", "analista"])
+    cuerpo = db.query(CuerpoDeAguaDB).filter(CuerpoDeAguaDB.id == cuerpo_id).first()
+    if not cuerpo:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cuerpo de agua no encontrado")
+
+    for campo, valor in payload.dict(exclude_unset=True).items():
+        setattr(cuerpo, campo, valor)
+    cuerpo.fecha_actualizacion = datetime.utcnow()
+    db.add(cuerpo)
+    db.commit()
+    db.refresh(cuerpo)
+
+    log_access(
+        db,
+        current_user,
+        endpoint=f"/cuerpos-agua/{cuerpo_id}",
+        method="PUT",
+        status_code=status.HTTP_200_OK,
+        cuerpo_agua_id=cuerpo.id,
+        ip=request.client.host if request.client else None,
+    )
+    return cuerpo
+
+
+@app.delete("/cuerpos-agua/{cuerpo_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def eliminar_cuerpo_agua(
+    cuerpo_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    require_role(current_user, ["admin", "analista"])
+    cuerpo = db.query(CuerpoDeAguaDB).filter(CuerpoDeAguaDB.id == cuerpo_id).first()
+    if not cuerpo:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cuerpo de agua no encontrado")
+
+    db.delete(cuerpo)
+    db.commit()
+    log_access(
+        db,
+        current_user,
+        endpoint=f"/cuerpos-agua/{cuerpo_id}",
+        method="DELETE",
+        status_code=status.HTTP_204_NO_CONTENT,
+        cuerpo_agua_id=cuerpo_id,
+        ip=request.client.host if request.client else None,
+    )
 
 
 # Sensores
