@@ -1,11 +1,24 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
+from pathlib import Path
 import os
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./observatorio_aguas.db")
+BASE_DIR = Path(__file__).resolve().parent
+raw_db_url = os.getenv("DATABASE_URL")
+
+if raw_db_url:
+    if raw_db_url.startswith("sqlite:///"):
+        db_path = Path(raw_db_url.replace("sqlite:///", ""))
+        if not db_path.is_absolute():
+            db_path = BASE_DIR / db_path
+        DATABASE_URL = f"sqlite:///{db_path}"
+    else:
+        DATABASE_URL = raw_db_url
+else:
+    DATABASE_URL = f"sqlite:///{BASE_DIR / 'observatorio_aguas.db'}"
 
 engine = create_engine(
     DATABASE_URL,

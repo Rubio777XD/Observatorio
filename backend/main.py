@@ -6,9 +6,13 @@ from typing import List, Optional
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import JWTError, jwt
-from passlib.context import CryptContext
-from pydantic import BaseModel, EmailStr, Field
+import base64
+import hashlib
+import hmac
+import json
+import secrets
+from pydantic import BaseModel, Field
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -34,8 +38,8 @@ logger = logging.getLogger(__name__)
 SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-key")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+PBKDF2_ITERATIONS = 600_000
+SALT_BYTES = 16
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 app = FastAPI(title="Observatorio de Aguas API", version="2.0.0")
@@ -60,7 +64,7 @@ class TokenResponse(BaseModel):
 
 
 class UserCreate(BaseModel):
-    email: EmailStr
+    email: str = Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     password: str = Field(min_length=8)
     full_name: str
     role: Optional[str] = Field(default=None, description="Nombre del rol a asignar")
@@ -68,7 +72,7 @@ class UserCreate(BaseModel):
 
 class UserOut(BaseModel):
     id: int
-    email: EmailStr
+    email: str
     full_name: str
     role: Optional[str] = None
     created_at: datetime
@@ -282,20 +286,91 @@ class WaterBodyParameterOut(BaseModel):
 
 # Helpers
 
+
+def _encode_bytes(raw: bytes) -> str:
+    return base64.b64encode(raw).decode("utf-8")
+
+
+def _decode_bytes(raw: str) -> bytes:
+    return base64.b64decode(raw.encode("utf-8"))
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        algorithm, iterations, salt_b64, hash_b64 = hashed_password.split("$")
+    except ValueError:
+        return False
+
+    if algorithm != "pbkdf2_sha256":
+        return False
+
+    salt = _decode_bytes(salt_b64)
+    stored_hash = _decode_bytes(hash_b64)
+    new_hash = hashlib.pbkdf2_hmac(
+        "sha256", plain_password.encode("utf-8"), salt, int(iterations)
+    )
+    return hmac.compare_digest(stored_hash, new_hash)
 
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    salt = secrets.token_bytes(SALT_BYTES)
+    derived = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS
+    )
+    return f"pbkdf2_sha256${PBKDF2_ITERATIONS}${_encode_bytes(salt)}${_encode_bytes(derived)}"
+
+
+def _b64url_encode(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("utf-8")
+
+
+def _b64url_decode(raw: str) -> bytes:
+    padding = "=" * (-len(raw) % 4)
+    return base64.urlsafe_b64decode(raw + padding)
+
+
+def _encode_jwt(payload: dict) -> str:
+    header = {"alg": ALGORITHM, "typ": "JWT"}
+    header_segment = _b64url_encode(json.dumps(header, separators=(",", ":")).encode())
+    payload_segment = _b64url_encode(
+        json.dumps(payload, separators=(",", ":"), default=str).encode()
+    )
+    signing_input = f"{header_segment}.{payload_segment}".encode()
+    signature = hmac.new(SECRET_KEY.encode(), signing_input, hashlib.sha256).digest()
+    signature_segment = _b64url_encode(signature)
+    return f"{header_segment}.{payload_segment}.{signature_segment}"
+
+
+class TokenValidationError(Exception):
+    pass
+
+
+def decode_access_token(token: str) -> dict:
+    try:
+        header_segment, payload_segment, signature_segment = token.split(".")
+    except ValueError:
+        raise TokenValidationError("Formato de token inválido")
+
+    signing_input = f"{header_segment}.{payload_segment}".encode()
+    expected_signature = hmac.new(SECRET_KEY.encode(), signing_input, hashlib.sha256).digest()
+    if not hmac.compare_digest(_b64url_encode(expected_signature), signature_segment):
+        raise TokenValidationError("Firma inválida")
+
+    payload_bytes = _b64url_decode(payload_segment)
+    payload = json.loads(payload_bytes)
+
+    exp = payload.get("exp")
+    if exp is not None and datetime.utcnow().timestamp() > float(exp):
+        raise TokenValidationError("Token expirado")
+
+    return payload
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    to_encode.update({"exp": int(expire.timestamp())})
+    return _encode_jwt(to_encode)
 
 
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
@@ -321,11 +396,11 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = decode_access_token(token)
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception
-    except JWTError:
+    except TokenValidationError:
         raise credentials_exception
 
     user = get_user_by_email(db, email=email)
@@ -614,7 +689,7 @@ async def obtener_estadisticas(db: Session = Depends(get_db)):
 @app.get("/health")
 async def health_check(db: Session = Depends(get_db)):
     try:
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
     except SQLAlchemyError:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Base de datos inaccesible")
