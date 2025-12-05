@@ -67,8 +67,15 @@ Flujo básico:
 ## 📚 Endpoints destacados
 - Salud: `GET /health`, raíz `GET /`.
 - Autenticación: `POST /auth/register`, `POST /auth/login`, `GET /auth/me`.
-- Datos: `GET/POST /cuerpos-agua`, `GET/POST /sensores`, `GET/POST /parametros`, `GET/POST /lecturas`, `GET/POST /alertas`, `GET/POST /zonas-protegidas`, `GET/POST /reportes`, `GET/POST /favoritos`, `GET/POST /cuerpo-parametros`.
+- Cuerpos de agua: `GET /cuerpos-agua`, `GET /cuerpos-agua/{id}`, `POST /cuerpos-agua` (JWT + rol admin/analista), `PUT /cuerpos-agua/{id}` (JWT + rol admin/analista), `DELETE /cuerpos-agua/{id}` (JWT + rol admin/analista).
+- Datos: `GET/POST /sensores`, `GET/POST /parametros`, `GET/POST /lecturas`, `GET/POST /alertas`, `GET/POST /zonas-protegidas`, `GET/POST /reportes`, `GET/POST /favoritos`, `GET/POST /cuerpo-parametros`.
 - Utilidades: `GET /estadisticas`, `GET /roles`.
+
+## 🧭 Flujo web con autenticación
+- El frontend en Vite consume directamente la API real (sin datos mockeados).
+- Pantallas de **registro** e **inicio de sesión** guardan el JWT en `localStorage` y muestran el nombre/rol del usuario activo.
+- Botón **"+ Registrar cuerpo de agua"** visible solo para roles `admin` o `analista`; abre un formulario modal (sin alterar el fondo) y envía `POST /cuerpos-agua`.
+- El mapa interactivo y la tabla de datos se actualizan con cada creación, usando la lista de `/cuerpos-agua` para mostrarlos con los colores correspondientes por tipo.
 
 ## 🧪 Tests rápidos
 Desde la raíz del repo:

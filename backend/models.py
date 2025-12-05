@@ -61,6 +61,7 @@ class CuerpoDeAguaDB(Base):
     oxigeno_disuelto = Column(Float, nullable=True)
     fecha_creacion = Column(DateTime, default=datetime.utcnow)
     fecha_actualizacion = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    creado_por_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     sensores = relationship("Sensor", back_populates="cuerpo_agua")
     lecturas = relationship("SensorReading", back_populates="cuerpo_agua")
@@ -69,6 +70,7 @@ class CuerpoDeAguaDB(Base):
     favoritos = relationship("UserFavorite", back_populates="cuerpo_agua")
     zonas = relationship("ProtectedZone", back_populates="cuerpo_agua")
     parametros_configurados = relationship("WaterBodyParameter", back_populates="cuerpo_agua")
+    creador = relationship("User")
 
 
 class Sensor(Base):
@@ -191,6 +193,7 @@ class AccessLog(Base):
     codigo_respuesta = Column(Integer, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
     ip = Column(String(50), nullable=True)
+    cuerpo_agua_id = Column(Integer, ForeignKey("cuerpos_agua.id"), nullable=True)
 
     usuario = relationship("User", back_populates="logs_acceso")
 

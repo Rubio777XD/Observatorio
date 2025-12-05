@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
 from pathlib import Path
@@ -41,6 +41,16 @@ def create_tables():
     import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+
+    inspector = inspect(engine)
+    existing_columns = {table: {col["name"] for col in inspector.get_columns(table)} for table in inspector.get_table_names()}
+
+    with engine.connect() as connection:
+        if "cuerpos_agua" in existing_columns and "creado_por_id" not in existing_columns["cuerpos_agua"]:
+            connection.execute(text("ALTER TABLE cuerpos_agua ADD COLUMN creado_por_id INTEGER"))
+        if "logs_acceso" in existing_columns and "cuerpo_agua_id" not in existing_columns["logs_acceso"]:
+            connection.execute(text("ALTER TABLE logs_acceso ADD COLUMN cuerpo_agua_id INTEGER"))
+        connection.commit()
 
 
 def init_sample_data():

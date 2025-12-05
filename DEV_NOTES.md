@@ -13,3 +13,9 @@
 - Añadidos tests de humo con `pytest` (health y favoritos sin token) y documentado ejecución de pruebas.
 - Actualizados README (raíz y backend) y `backend/db_schema_overview.md` con 12 tablas totales y ejemplos de uso.
 - `docker compose up` no se pudo ejecutar en este entorno porque el binario `docker` no está disponible.
+
+## 2025-07-01
+- Flujo web completo de autenticación en React (registro/login con token en `localStorage` y contexto global de usuario).
+- Nuevo modal de creación de cuerpos de agua (solo visible para roles admin/analista) que dispara `POST /cuerpos-agua` sin alterar el fondo y refresca mapa y tabla en caliente.
+- Backend: campo `creado_por_id` en `cuerpos_agua`, logs enriquecidos con `cuerpo_agua_id`, y endpoints protegidos para crear/editar/eliminar cuerpos de agua con registro automático en `logs_acceso` y reporte inicial.
+- Vistas de datos y mapa consumen `/cuerpos-agua` real (sin mocks) y calculan totales/biodiversidad/contaminación desde la base de datos.
