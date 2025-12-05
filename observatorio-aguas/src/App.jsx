@@ -167,10 +167,7 @@ function AppContent() {
   const [formOpen, setFormOpen] = useState(false);
   const [alerta, setAlerta] = useState('');
 
-  const puedeCrear = useMemo(() => {
-    const role = user?.role?.toLowerCase();
-    return role === 'admin' || role === 'analista';
-  }, [user]);
+  const puedeCrear = isAuthenticated;
 
   const fetchCuerpos = async () => {
     const { data } = await api.get('/cuerpos-agua');
@@ -292,7 +289,7 @@ function AppContent() {
           </div>
         )}
         {!isAuthenticated && (
-          <p className="text-sm text-slate-600 text-right">Inicia sesión como analista o admin para registrar nuevos cuerpos de agua.</p>
+          <p className="text-sm text-slate-600 text-right">Inicia sesión para registrar nuevos cuerpos de agua.</p>
         )}
 
         {alerta && <div className="rounded-xl bg-emerald-50 text-emerald-700 p-3 border border-emerald-100">{alerta}</div>}

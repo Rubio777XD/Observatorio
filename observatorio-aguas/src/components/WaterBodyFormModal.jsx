@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 
 const tipos = ['Río', 'Lago', 'Océano'];
 const contaminacionOpciones = ['Baja', 'Medio', 'Media', 'Medio-Alto', 'Alto'];
@@ -50,8 +51,8 @@ export default function WaterBodyFormModal({ open, onClose, onSubmit }) {
     }
   };
 
-  return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
+  return createPortal(
+    <div className="modal-backdrop" role="dialog" aria-modal="true" style={{ zIndex: 9999, backgroundColor: 'rgba(15,23,42,0.35)' }}>
       <div className="bg-white shadow-xl rounded-2xl w-full max-w-2xl mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold text-slate-800">Registrar cuerpo de agua</h3>
@@ -152,6 +153,7 @@ export default function WaterBodyFormModal({ open, onClose, onSubmit }) {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
