@@ -1,132 +1,66 @@
 # Observatorio de Aguas - Backend API
 
-API REST desarrollada con FastAPI para el sistema de monitoreo de cuerpos de agua.
+API REST desarrollada con FastAPI y SQLAlchemy para el monitoreo de cuerpos de agua.
 
 ## Características
-
-- 🚀 **FastAPI**: Framework moderno y rápido para APIs
-- 🗄️ **SQLAlchemy**: ORM para manejo de base de datos
-- 📊 **SQLite**: Base de datos ligera (configurable para PostgreSQL)
-- 🔄 **CORS**: Configurado para el frontend
-- 📝 **Documentación automática**: Swagger UI y ReDoc
-- 🔍 **Búsqueda y filtrado**: Endpoints para buscar cuerpos de agua
+- 🚀 **FastAPI** 1.0+ con documentación automática.
+- 🗄️ **SQLAlchemy 2.x** con esquema ampliado a 11 tablas (usuarios, sensores, lecturas, alertas, etc.).
+- 🔐 **Autenticación JWT** con registro y login de usuarios.
+- 🧭 **Rutas CRUD** para sensores, parámetros, lecturas, alertas, reportes, zonas protegidas y favoritos.
+- 🔄 **CORS** preconfigurado para el frontend en Vite.
 
 ## Instalación
-
-### Prerrequisitos
-
-- Python 3.8 o superior
-- pip (gestor de paquetes de Python)
-
-### Pasos de instalación
-
-1. **Navegar al directorio del backend:**
+1. Navega al directorio del backend:
    ```bash
    cd backend
    ```
-
-2. **Crear un entorno virtual (recomendado):**
+2. (Opcional) Crea y activa un entorno virtual:
    ```bash
    python -m venv venv
-   
-   # En macOS/Linux:
-   source venv/bin/activate
-   
-   # En Windows:
-   venv\Scripts\activate
+   source venv/bin/activate  # Windows: venv\\Scripts\\activate
    ```
-
-3. **Instalar dependencias:**
+3. Instala dependencias:
    ```bash
    pip install -r requirements.txt
    ```
-
-4. **Configurar variables de entorno:**
-   - El archivo `.env` ya está configurado con valores por defecto
-   - Modifica las variables según tus necesidades
+4. Copia o ajusta variables en `.env` (opcional). Por defecto se usa SQLite `observatorio_aguas.db` y `SECRET_KEY` de desarrollo.
 
 ## Uso
-
-### Iniciar el servidor
-
+Inicia el servidor con reload:
 ```bash
-# Opción 1: Usando el script de inicio
 python run.py
-
-# Opción 2: Directamente con uvicorn
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
+API disponible en `http://localhost:8000` con documentación en `/docs`.
 
-El servidor estará disponible en:
-- **API**: http://localhost:8000
-- **Documentación Swagger**: http://localhost:8000/docs
-- **Documentación ReDoc**: http://localhost:8000/redoc
+## Endpoints principales
+- `POST /auth/register` – Registro de usuario.
+- `POST /auth/login` – Login con OAuth2 (form-data) y obtención de JWT.
+- `GET /auth/me` – Datos del usuario autenticado.
+- `GET/POST /cuerpos-agua` – Listado y creación de cuerpos de agua (creación requiere JWT).
+- `GET/POST /sensores`
+- `GET/POST /parametros`
+- `GET/POST /lecturas`
+- `GET/POST /alertas`
+- `GET/POST /zonas-protegidas`
+- `GET/POST /reportes`
+- `GET/POST /favoritos`
+- `GET/POST /cuerpo-parametros`
+- `GET /estadisticas`, `GET /health`
 
-## Endpoints de la API
+Consulta `db_schema_overview.md` para detalles de las tablas.
 
-### Cuerpos de Agua
-
-- `GET /` - Mensaje de bienvenida
-- `GET /cuerpos-agua` - Obtener todos los cuerpos de agua
-- `GET /cuerpos-agua/{id}` - Obtener un cuerpo de agua específico
-- `GET /cuerpos-agua/tipo/{tipo}` - Filtrar por tipo (río, lago, océano)
-- `GET /cuerpos-agua/buscar/{termino}` - Buscar por nombre
-- `POST /cuerpos-agua` - Crear un nuevo cuerpo de agua
-
-### Ejemplos de uso
-
-```bash
-# Obtener todos los cuerpos de agua
-curl http://localhost:8000/cuerpos-agua
-
-# Buscar por nombre
-curl http://localhost:8000/cuerpos-agua/buscar/amazonas
-
-# Filtrar por tipo
-curl http://localhost:8000/cuerpos-agua/tipo/río
-```
-
-## Estructura del proyecto
-
+## Estructura
 ```
 backend/
-├── main.py              # Aplicación principal FastAPI
-├── database.py          # Configuración de base de datos
-├── run.py              # Script de inicio
-├── requirements.txt     # Dependencias Python
-├── .env                # Variables de entorno
-├── README.md           # Este archivo
-└── observatorio_aguas.db # Base de datos SQLite (se crea automáticamente)
+├── database.py              # Conexión y creación de tablas
+├── db_schema_overview.md    # Resumen del esquema
+├── main.py                  # Aplicación FastAPI y rutas
+├── models.py                # Modelos SQLAlchemy
+├── requirements.txt         # Dependencias
+├── run.py                   # Arranque con Uvicorn
+└── observatorio_aguas.db    # BD SQLite (auto generada)
 ```
 
-## Configuración de la base de datos
-
-Por defecto, la aplicación usa SQLite. Para usar PostgreSQL:
-
-1. Instalar psycopg2: `pip install psycopg2-binary`
-2. Modificar `DATABASE_URL` en `.env`:
-   ```
-   DATABASE_URL=postgresql://usuario:contraseña@localhost/observatorio_aguas
-   ```
-
-## Desarrollo
-
-### Agregar nuevos endpoints
-
-1. Definir el modelo Pydantic en `main.py`
-2. Crear la función del endpoint
-3. Agregar la ruta con el decorador apropiado
-
-### Modificar la base de datos
-
-1. Actualizar el modelo en `database.py`
-2. Las tablas se recrean automáticamente en desarrollo
-
-## Próximas características
-
-- [ ] Autenticación JWT
-- [ ] Paginación de resultados
-- [ ] Validación avanzada de datos
-- [ ] Logging estructurado
-- [ ] Tests unitarios
-- [ ] Migraciones de base de datos con Alembic
+## Notas
+- Los datos de ejemplo y roles base se generan automáticamente en el evento de startup.
+- Las operaciones de escritura (creación de cuerpos de agua, sensores, etc.) requieren un JWT válido.
