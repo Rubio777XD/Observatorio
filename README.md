@@ -27,6 +27,8 @@ npm run dev -- --host --port 5173
 ```
 - Interfaz disponible en `http://localhost:5173`.
 - Configura `VITE_API_URL` para apuntar al backend.
+- El frontend ya no usa datos quemados: carga cuerpos de agua, sensores, parámetros, lecturas, alertas, zonas protegidas,
+  reportes y favoritos directamente desde la API.
 
 ### Docker Compose
 ```bash
@@ -54,7 +56,12 @@ Flujo básico:
    curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/auth/me
    ```
 - Contraseñas guardadas con PBKDF2-SHA256 + salt.
-- Rutas de escritura (cuerpos de agua, sensores, etc.) requieren token Bearer.
+- Rutas de escritura (cuerpos de agua, sensores, etc.) requieren token Bearer y rol adecuado.
+
+### Flujo web
+- Login y registro se realizan desde la interfaz React y almacenan el JWT en `localStorage` (`observatorio_token`).
+- El usuario autenticado y su rol se obtienen con `GET /auth/me` y se muestran en la navegación.
+- Solo roles **admin** y **analista** pueden ver el botón “Añadir nuevo cuerpo de agua” y usarlo para abrir el formulario protegido.
 
 ## 🗄️ Esquema de base de datos
 - **Total de tablas:** 12 (1 existente + 11 nuevas).
@@ -67,7 +74,12 @@ Flujo básico:
 ## 📚 Endpoints destacados
 - Salud: `GET /health`, raíz `GET /`.
 - Autenticación: `POST /auth/register`, `POST /auth/login`, `GET /auth/me`.
-- Datos: `GET/POST /cuerpos-agua`, `GET/POST /sensores`, `GET/POST /parametros`, `GET/POST /lecturas`, `GET/POST /alertas`, `GET/POST /zonas-protegidas`, `GET/POST /reportes`, `GET/POST /favoritos`, `GET/POST /cuerpo-parametros`.
+- Cuerpos de agua: `GET /cuerpos-agua`, `GET /cuerpos-agua/{id}`, `POST /cuerpos-agua` (admin/analista),
+  `PUT /cuerpos-agua/{id}` (admin/analista), `DELETE /cuerpos-agua/{id}` (solo admin).
+- Datos relacionados: `GET/POST /sensores`, `GET/POST /parametros`, `GET/POST /lecturas`, `GET/POST /alertas`,
+  `GET/POST /zonas-protegidas`, `GET/POST /reportes`, `GET/POST /favoritos`, `GET/POST /cuerpo-parametros`.
+- Auditoría y métricas: `GET /estadisticas` usa las tablas `cuerpos_agua`, `sensores`, `alertas` y `parametros_ambientales`;
+  `logs_acceso` registra la creación/actualización/eliminación de cuerpos de agua.
 - Utilidades: `GET /estadisticas`, `GET /roles`.
 
 ## 🧪 Tests rápidos

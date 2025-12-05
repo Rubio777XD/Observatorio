@@ -3,6 +3,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
 from pathlib import Path
 import os
+from sqlalchemy import inspect, text
 
 load_dotenv()
 
@@ -41,6 +42,15 @@ def create_tables():
     import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _ensure_cuerpo_agua_creator_column()
+
+
+def _ensure_cuerpo_agua_creator_column():
+    inspector = inspect(engine)
+    columnas = [col["name"] for col in inspector.get_columns("cuerpos_agua")]
+    if "creado_por_id" not in columnas:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE cuerpos_agua ADD COLUMN creado_por_id INTEGER"))
 
 
 def init_sample_data():

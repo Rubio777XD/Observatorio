@@ -43,6 +43,7 @@ class User(Base):
     favoritos = relationship("UserFavorite", back_populates="usuario", cascade="all, delete-orphan")
     reportes = relationship("Report", back_populates="usuario")
     logs_acceso = relationship("AccessLog", back_populates="usuario")
+    cuerpos_creados = relationship("CuerpoDeAguaDB", back_populates="creador")
 
 
 class CuerpoDeAguaDB(Base):
@@ -61,6 +62,7 @@ class CuerpoDeAguaDB(Base):
     oxigeno_disuelto = Column(Float, nullable=True)
     fecha_creacion = Column(DateTime, default=datetime.utcnow)
     fecha_actualizacion = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    creado_por_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     sensores = relationship("Sensor", back_populates="cuerpo_agua")
     lecturas = relationship("SensorReading", back_populates="cuerpo_agua")
@@ -69,6 +71,7 @@ class CuerpoDeAguaDB(Base):
     favoritos = relationship("UserFavorite", back_populates="cuerpo_agua")
     zonas = relationship("ProtectedZone", back_populates="cuerpo_agua")
     parametros_configurados = relationship("WaterBodyParameter", back_populates="cuerpo_agua")
+    creador = relationship("User", back_populates="cuerpos_creados")
 
 
 class Sensor(Base):

@@ -3,7 +3,7 @@ import logging
 import os
 from typing import List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import base64
@@ -102,6 +102,9 @@ class CuerpoDeAgua(BaseModel):
     temperatura: Optional[float]
     ph: Optional[float]
     oxigeno_disuelto: Optional[float]
+    fecha_creacion: datetime
+    fecha_actualizacion: datetime
+    creado_por_id: Optional[int]
 
     class Config:
         from_attributes = True
@@ -114,6 +117,19 @@ class CuerpoDeAguaCreate(BaseModel):
     longitud: float
     contaminacion: str
     biodiversidad: str
+    descripcion: Optional[str] = None
+    temperatura: Optional[float] = None
+    ph: Optional[float] = None
+    oxigeno_disuelto: Optional[float] = None
+
+
+class CuerpoDeAguaUpdate(BaseModel):
+    nombre: Optional[str] = None
+    tipo: Optional[str] = None
+    latitud: Optional[float] = None
+    longitud: Optional[float] = None
+    contaminacion: Optional[str] = None
+    biodiversidad: Optional[str] = None
     descripcion: Optional[str] = None
     temperatura: Optional[float] = None
     ph: Optional[float] = None
@@ -377,13 +393,19 @@ def get_user_by_email(db: Session, email: str) -> Optional[User]:
     return db.query(User).filter(User.email == email).first()
 
 
-def log_access(db: Session, user: Optional[User], endpoint: str, method: str, status_code: int):
+def _require_roles(user: User, allowed_roles: List[str]):
+    nombre_rol = user.role.nombre if user.role else None
+    if nombre_rol not in allowed_roles:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permisos para realizar esta acción")
+
+
+def log_access(db: Session, user: Optional[User], endpoint: str, method: str, status_code: int, ip: str = "0.0.0.0"):
     registro = AccessLog(
         usuario_id=user.id if user else None,
         endpoint=endpoint,
         metodo=method,
         codigo_respuesta=status_code,
-        ip="0.0.0.0",
+        ip=ip,
     )
     db.add(registro)
     db.commit()
@@ -496,16 +518,78 @@ async def obtener_cuerpo_agua(cuerpo_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/cuerpos-agua", response_model=CuerpoDeAgua, status_code=status.HTTP_201_CREATED)
-async def crear_cuerpo_agua(cuerpo: CuerpoDeAguaCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def crear_cuerpo_agua(
+    cuerpo: CuerpoDeAguaCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_roles(current_user, ["admin", "analista"])
     existente = db.query(CuerpoDeAguaDB).filter(CuerpoDeAguaDB.nombre.ilike(cuerpo.nombre)).first()
     if existente:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El cuerpo de agua ya existe")
 
-    db_cuerpo = CuerpoDeAguaDB(**cuerpo.dict())
+    db_cuerpo = CuerpoDeAguaDB(**cuerpo.dict(), creado_por_id=current_user.id)
     db.add(db_cuerpo)
     db.commit()
     db.refresh(db_cuerpo)
+
+    reporte_inicial = Report(
+        cuerpo_agua_id=db_cuerpo.id,
+        usuario_id=current_user.id,
+        titulo=f"Registro inicial de {db_cuerpo.nombre}",
+        contenido=f"El usuario {current_user.full_name} creó el cuerpo de agua {db_cuerpo.nombre}.",
+        formato="texto",
+    )
+    db.add(reporte_inicial)
+    db.commit()
+
+    client_ip = request.client.host if request.client else "0.0.0.0"
+    log_access(db, current_user, "/cuerpos-agua", "POST", status.HTTP_201_CREATED, client_ip)
     return db_cuerpo
+
+
+@app.put("/cuerpos-agua/{cuerpo_id}", response_model=CuerpoDeAgua)
+async def actualizar_cuerpo_agua(
+    cuerpo_id: int,
+    payload: CuerpoDeAguaUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_roles(current_user, ["admin", "analista"])
+    cuerpo_db = db.query(CuerpoDeAguaDB).filter(CuerpoDeAguaDB.id == cuerpo_id).first()
+    if not cuerpo_db:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cuerpo de agua no encontrado")
+
+    for campo, valor in payload.dict(exclude_unset=True).items():
+        setattr(cuerpo_db, campo, valor)
+
+    db.add(cuerpo_db)
+    db.commit()
+    db.refresh(cuerpo_db)
+    client_ip = request.client.host if request.client else "0.0.0.0"
+    log_access(db, current_user, f"/cuerpos-agua/{cuerpo_id}", "PUT", status.HTTP_200_OK, client_ip)
+    return cuerpo_db
+
+
+@app.delete("/cuerpos-agua/{cuerpo_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def eliminar_cuerpo_agua(
+    cuerpo_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_roles(current_user, ["admin"])
+    cuerpo_db = db.query(CuerpoDeAguaDB).filter(CuerpoDeAguaDB.id == cuerpo_id).first()
+    if not cuerpo_db:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cuerpo de agua no encontrado")
+
+    db.delete(cuerpo_db)
+    db.commit()
+    client_ip = request.client.host if request.client else "0.0.0.0"
+    log_access(db, current_user, f"/cuerpos-agua/{cuerpo_id}", "DELETE", status.HTTP_204_NO_CONTENT, client_ip)
+    return None
 
 
 # Sensores

@@ -8,6 +8,7 @@ API REST con FastAPI y SQLAlchemy para el monitoreo de cuerpos de agua.
 - 🔐 Autenticación JWT (HS256) y contraseñas con PBKDF2-SHA256 + salt.
 - 🧭 Rutas CRUD para sensores, parámetros, lecturas, alertas, reportes, zonas protegidas, favoritos y configuración por cuerpo de agua.
 - 🔄 CORS preconfigurado para el frontend en Vite.
+- 📝 `logs_acceso` registra altas/bajas/ediciones de cuerpos de agua y vincula la operación con el usuario.
 
 ## Instalación y uso
 1. Entrar al directorio:
@@ -44,6 +45,7 @@ API REST con FastAPI y SQLAlchemy para el monitoreo de cuerpos de agua.
 - Login: `POST /auth/login` (form `username`/`password`), devuelve `access_token`.
 - Perfil: `GET /auth/me` con `Authorization: Bearer <token>`.
 - El token es JWT HS256 generado con expiración (`ACCESS_TOKEN_EXPIRE_MINUTES`).
+- Roles (`roles.nombre`) controlan permisos: admin/analista pueden crear/editar cuerpos; solo admin puede eliminar.
 
 ## Estructura
 ```
@@ -59,8 +61,15 @@ backend/
 ```
 
 ## Migraciones y datos
-- Las tablas se crean automáticamente en el evento de startup.
+- Las tablas se crean automáticamente en el evento de startup. Si `cuerpos_agua` no tiene la columna `creado_por_id`, se agrega
+  automáticamente (SQLite `ALTER TABLE`).
 - Roles base (`admin`, `analista`, `visualizador`) y 3 cuerpos de agua de ejemplo se insertan si la BD está vacía.
+
+## Cuerpos de agua y auditoría
+- `POST /cuerpos-agua` crea el registro con `creado_por_id` y genera un reporte inicial asociado.
+- `PUT /cuerpos-agua/{id}` permite actualizar campos claves.
+- `DELETE /cuerpos-agua/{id}` elimina el registro.
+- Cada operación escribe en `logs_acceso` (usuario, endpoint, método, código de respuesta, IP) y está protegida por JWT.
 
 ## Tests
 ```bash
