@@ -5,3 +5,11 @@
 - Implementado sistema de autenticación JWT con registro/login y protección de rutas de escritura.
 - Añadidos endpoints CRUD básicos para nuevas entidades (sensores, parámetros, lecturas, alertas, reportes, zonas protegidas, favoritos y configuraciones de parámetros).
 - Actualizados README y `backend/db_schema_overview.md` para reflejar arquitectura, endpoints y flujo de ejecución.
+
+## 2025-12-05
+- Ajustado hashing de contraseñas a PBKDF2-SHA256 nativo (sin dependencias externas) y JWT HS256 manual para evitar fallos de instalación.
+- Corregido `database.py` (imports) y endpoint `/health` (usa `text("SELECT 1")`) para asegurar arranque del backend.
+- Confirmado autenticación: registro, login y `/auth/me`; comprobado acceso 401/200 en rutas protegidas.
+- Añadidos tests de humo con `pytest` (health y favoritos sin token) y documentado ejecución de pruebas.
+- Actualizados README (raíz y backend) y `backend/db_schema_overview.md` con 12 tablas totales y ejemplos de uso.
+- `docker compose up` no se pudo ejecutar en este entorno porque el binario `docker` no está disponible.

@@ -1,11 +1,11 @@
 # 🌊 Observatorio de Aguas
 
-Plataforma web para el monitoreo y análisis de cuerpos de agua con frontend en React y backend en FastAPI.
+Plataforma web para monitoreo y análisis de cuerpos de agua. Incluye un backend en FastAPI con autenticación JWT y un frontend en React.
 
 ## 🏗️ Arquitectura
-- **Frontend:** React 18 + Vite + Tailwind + React Leaflet (directorio `observatorio-aguas`).
-- **Backend:** FastAPI + SQLAlchemy + SQLite con arranque mediante `run.py` (directorio `backend`).
-- **Orquestación:** Docker/Docker Compose para levantar frontend y backend.
+- **Frontend:** React 18 + Vite + Tailwind + React Leaflet (`observatorio-aguas`).
+- **Backend:** FastAPI + SQLAlchemy + SQLite (`backend`), hashing PBKDF2 para contraseñas y JWT HS256.
+- **Orquestación:** Docker/Docker Compose para levantar frontend y backend juntos.
 
 ## 🚀 Puesta en marcha en desarrollo
 ### Backend
@@ -16,8 +16,8 @@ source venv/bin/activate  # Windows: venv\\Scripts\\activate
 pip install -r requirements.txt
 python run.py
 ```
-- API en `http://localhost:8000` con Swagger en `/docs`.
-- Variables opcionales en `.env`: `DATABASE_URL`, `SECRET_KEY`, `FRONTEND_URL`.
+- API en `http://localhost:8000` con Swagger en `/docs` y Redoc en `/redoc`.
+- Variables opcionales en `.env`: `DATABASE_URL`, `SECRET_KEY`, `FRONTEND_URL`, `API_HOST`, `API_PORT`.
 
 ### Frontend
 ```bash
@@ -25,55 +25,58 @@ cd observatorio-aguas
 npm install
 npm run dev -- --host --port 5173
 ```
-- Interfaz disponible en `http://localhost:5173` (redirige al mapa estático `mapa-simple.html`).
-- Configura `VITE_API_URL` si consumes endpoints desde el frontend.
+- Interfaz disponible en `http://localhost:5173`.
+- Configura `VITE_API_URL` para apuntar al backend.
 
 ### Docker Compose
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
-- Frontend publicado en `http://localhost:3000` (variable `VITE_API_URL` apunta al backend en `http://localhost:8000`).
-- Backend publicado en `http://localhost:8000` con base de datos montada en `backend/observatorio_aguas.db`.
+- Backend publicado en `http://localhost:8000` (base de datos persistida en `backend/observatorio_aguas.db`).
+- Frontend publicado en `http://localhost:3000` y apunta al backend.
 
-## 🗂️ Estructura del repositorio
-```
-Observatorio/
-├── backend/                # API FastAPI, modelos y autenticación JWT
-│   ├── database.py
-│   ├── db_schema_overview.md
-│   ├── main.py
-│   ├── models.py
-│   ├── requirements.txt
-│   └── run.py
-├── observatorio-aguas/     # Frontend React + Vite
-│   ├── src/
-│   ├── package.json
-│   └── Dockerfile
-├── docker-compose.yml
-├── README.md               # Este archivo
-└── DEV_NOTES.md            # Cambios y notas de desarrollo
-```
-
-## 🔐 Autenticación y usuarios
-- Endpoints de registro y login con JWT: `POST /auth/register` y `POST /auth/login` (form-data). Usa el token Bearer en rutas protegidas.
-- Roles base (`admin`, `analista`, `visualizador`) se crean al iniciar si no existen.
-- Operaciones de escritura (creación de cuerpos de agua, sensores, lecturas, etc.) requieren un token válido.
-
-## 📚 Principales endpoints
-- Cuerpos de agua: `GET/POST /cuerpos-agua`, `GET /cuerpos-agua/{id}`.
-- Sensores: `GET/POST /sensores`.
-- Parámetros ambientales: `GET/POST /parametros`.
-- Lecturas de sensores: `GET/POST /lecturas`.
-- Alertas: `GET/POST /alertas`.
-- Reportes: `GET/POST /reportes`.
-- Zonas protegidas: `GET/POST /zonas-protegidas`.
-- Favoritos de usuario: `GET/POST /favoritos`.
-- Configuración de parámetros por cuerpo de agua: `GET/POST /cuerpo-parametros`.
-- Utilidades: `GET /estadisticas`, `GET /health`, `GET /auth/me`, `GET /roles`.
+## 🔐 Autenticación
+Flujo básico:
+1. Registro `POST /auth/register` (JSON):
+   ```bash
+   curl -X POST http://localhost:8000/auth/register \
+     -H "Content-Type: application/json" \
+     -d '{"email":"demo@example.com","password":"password123","full_name":"Demo"}'
+   ```
+2. Login `POST /auth/login` (form-data):
+   ```bash
+   TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     -d "username=demo@example.com&password=password123" | jq -r .access_token)
+   ```
+3. Perfil protegido `GET /auth/me`:
+   ```bash
+   curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/auth/me
+   ```
+- Contraseñas guardadas con PBKDF2-SHA256 + salt.
+- Rutas de escritura (cuerpos de agua, sensores, etc.) requieren token Bearer.
 
 ## 🗄️ Esquema de base de datos
-El backend define 11 tablas: cuerpos_agua, roles, users, sensores, parametros_ambientales, lecturas_sensores, alertas, reportes, user_favorites, logs_acceso, zonas_protegidas y cuerpo_parametros. Consulta `backend/db_schema_overview.md` para campos y relaciones.
+- **Total de tablas:** 12 (1 existente + 11 nuevas).
+- Categorías principales:
+  - Usuarios y roles: `users`, `roles`, `logs_acceso`, `user_favorites`.
+  - Monitoreo: `cuerpos_agua` (existente), `sensores`, `parametros_ambientales`, `lecturas_sensores`.
+  - Gestión ambiental: `alertas`, `zonas_protegidas`, `cuerpo_parametros`, `reportes`.
+- Detalle completo en `backend/db_schema_overview.md`.
 
-## 📝 Notas adicionales
-- Los datos de ejemplo de cuerpos de agua y roles se generan automáticamente al iniciar.
-- Mantén `DEV_NOTES.md` actualizado con cambios relevantes en el flujo de desarrollo.
+## 📚 Endpoints destacados
+- Salud: `GET /health`, raíz `GET /`.
+- Autenticación: `POST /auth/register`, `POST /auth/login`, `GET /auth/me`.
+- Datos: `GET/POST /cuerpos-agua`, `GET/POST /sensores`, `GET/POST /parametros`, `GET/POST /lecturas`, `GET/POST /alertas`, `GET/POST /zonas-protegidas`, `GET/POST /reportes`, `GET/POST /favoritos`, `GET/POST /cuerpo-parametros`.
+- Utilidades: `GET /estadisticas`, `GET /roles`.
+
+## 🧪 Tests rápidos
+Desde la raíz del repo:
+```bash
+python -m compileall backend
+pytest backend/tests
+```
+
+## 📝 Notas
+- Los datos iniciales de cuerpos de agua y roles se cargan al iniciar la app.
+- Mantén `DEV_NOTES.md` actualizado con hallazgos y decisiones de desarrollo.

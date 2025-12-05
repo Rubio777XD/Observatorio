@@ -1,66 +1,74 @@
 # Observatorio de Aguas - Backend API
 
-API REST desarrollada con FastAPI y SQLAlchemy para el monitoreo de cuerpos de agua.
+API REST con FastAPI y SQLAlchemy para el monitoreo de cuerpos de agua.
 
 ## Características
-- 🚀 **FastAPI** 1.0+ con documentación automática.
-- 🗄️ **SQLAlchemy 2.x** con esquema ampliado a 11 tablas (usuarios, sensores, lecturas, alertas, etc.).
-- 🔐 **Autenticación JWT** con registro y login de usuarios.
-- 🧭 **Rutas CRUD** para sensores, parámetros, lecturas, alertas, reportes, zonas protegidas y favoritos.
-- 🔄 **CORS** preconfigurado para el frontend en Vite.
+- 🚀 FastAPI con documentación automática en `/docs` y `/redoc`.
+- 🗄️ SQLAlchemy 2.x con **12 tablas** (cuerpos de agua + 11 tablas nuevas de usuarios, sensores, alertas, etc.).
+- 🔐 Autenticación JWT (HS256) y contraseñas con PBKDF2-SHA256 + salt.
+- 🧭 Rutas CRUD para sensores, parámetros, lecturas, alertas, reportes, zonas protegidas, favoritos y configuración por cuerpo de agua.
+- 🔄 CORS preconfigurado para el frontend en Vite.
 
-## Instalación
-1. Navega al directorio del backend:
+## Instalación y uso
+1. Entrar al directorio:
    ```bash
    cd backend
    ```
-2. (Opcional) Crea y activa un entorno virtual:
+2. (Opcional) Crear entorno virtual:
    ```bash
    python -m venv venv
    source venv/bin/activate  # Windows: venv\\Scripts\\activate
    ```
-3. Instala dependencias:
+3. Instalar dependencias:
    ```bash
    pip install -r requirements.txt
    ```
-4. Copia o ajusta variables en `.env` (opcional). Por defecto se usa SQLite `observatorio_aguas.db` y `SECRET_KEY` de desarrollo.
+4. Variables opcionales en `.env`:
+   - `DATABASE_URL` (por defecto `sqlite:///./observatorio_aguas.db`).
+   - `SECRET_KEY` (clave para firmar JWT).
+   - `FRONTEND_URL`, `API_HOST`, `API_PORT`.
+5. Arrancar el servidor (con recarga en desarrollo):
+   ```bash
+   python run.py
+   ```
+   API en `http://localhost:8000`.
 
-## Uso
-Inicia el servidor con reload:
-```bash
-python run.py
-```
-API disponible en `http://localhost:8000` con documentación en `/docs`.
+## Modelos y relaciones
+- **Existente:** `cuerpos_agua`.
+- **Nuevos:** `roles`, `users`, `sensores`, `parametros_ambientales`, `lecturas_sensores`, `zonas_protegidas`, `alertas`, `reportes`, `user_favorites`, `logs_acceso`, `cuerpo_parametros`.
+- `users` incluye `email` único, `password_hash`, `full_name`, `created_at`/`updated_at`, `last_login`, `role_id`.
+- Resumen detallado en `db_schema_overview.md`.
 
-## Endpoints principales
-- `POST /auth/register` – Registro de usuario.
-- `POST /auth/login` – Login con OAuth2 (form-data) y obtención de JWT.
-- `GET /auth/me` – Datos del usuario autenticado.
-- `GET/POST /cuerpos-agua` – Listado y creación de cuerpos de agua (creación requiere JWT).
-- `GET/POST /sensores`
-- `GET/POST /parametros`
-- `GET/POST /lecturas`
-- `GET/POST /alertas`
-- `GET/POST /zonas-protegidas`
-- `GET/POST /reportes`
-- `GET/POST /favoritos`
-- `GET/POST /cuerpo-parametros`
-- `GET /estadisticas`, `GET /health`
-
-Consulta `db_schema_overview.md` para detalles de las tablas.
+## Autenticación
+- Registro: `POST /auth/register` (JSON).
+- Login: `POST /auth/login` (form `username`/`password`), devuelve `access_token`.
+- Perfil: `GET /auth/me` con `Authorization: Bearer <token>`.
+- El token es JWT HS256 generado con expiración (`ACCESS_TOKEN_EXPIRE_MINUTES`).
 
 ## Estructura
 ```
 backend/
-├── database.py              # Conexión y creación de tablas
+├── database.py              # Conexión y creación de tablas + datos de ejemplo
 ├── db_schema_overview.md    # Resumen del esquema
 ├── main.py                  # Aplicación FastAPI y rutas
 ├── models.py                # Modelos SQLAlchemy
-├── requirements.txt         # Dependencias
+├── requirements.txt         # Dependencias (incluye pytest para tests de humo)
 ├── run.py                   # Arranque con Uvicorn
+├── tests/                   # Tests rápidos con TestClient
 └── observatorio_aguas.db    # BD SQLite (auto generada)
 ```
 
-## Notas
-- Los datos de ejemplo y roles base se generan automáticamente en el evento de startup.
-- Las operaciones de escritura (creación de cuerpos de agua, sensores, etc.) requieren un JWT válido.
+## Migraciones y datos
+- Las tablas se crean automáticamente en el evento de startup.
+- Roles base (`admin`, `analista`, `visualizador`) y 3 cuerpos de agua de ejemplo se insertan si la BD está vacía.
+
+## Tests
+```bash
+python -m compileall backend
+pytest tests
+```
+Los tests verifican que `/health` responda 200 y que las rutas protegidas exijan JWT.
+Si `httpx` no está disponible en el entorno, el test de humo levanta un servidor Uvicorn temporal para realizar las peticiones.
+
+## Docker
+La imagen se construye con `backend/Dockerfile`. En `docker-compose.yml` se expone en el puerto 8000 y monta la base de datos en un volumen local.
