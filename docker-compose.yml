@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # Frontend - React Application
+  frontend:
+    build:
+      context: ./observatorio-aguas
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - observatorio-network
+
+  # Backend - FastAPI Application
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./observatorio_aguas.db
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - FRONTEND_URL=http://localhost:3000
+    volumes:
+      - ./backend/observatorio_aguas.db:/app/observatorio_aguas.db
+    networks:
+      - observatorio-network
+
+networks:
+  observatorio-network:
+    driver: bridge
+
+volumes:
+  db-data:
+    driver: local

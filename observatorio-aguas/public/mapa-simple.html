@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Observatorio de Aguas - Mapa Interactivo</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+        .marker-popup h3 {
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+        .marker-popup p {
+            margin: 0.25rem 0;
+            font-size: 0.9rem;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .btn-tab.active {
+            background-color: rgb(59, 130, 246);
+            color: white;
+        }
+        .btn-tab:not(.active) {
+            background-color: transparent;
+            color: rgb(75, 85, 99);
+        }
+        .btn-tab:not(.active):hover {
+            background-color: rgb(243, 244, 246);
+        }
+        .stats-card {
+            transition: all 0.3s ease;
+        }
+        .stats-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .filter-btn.active {
+            border-width: 2px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <nav class="bg-white shadow-lg rounded-xl mx-4 mt-4 mb-8 backdrop-blur-md">
+        <div class="container mx-auto px-6">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                    <h1 class="text-xl font-bold text-gray-800">Observatorio de Aguas</h1>
+                </div>
+                
+                <div class="flex space-x-2">
+                    <button class="btn-tab active px-4 py-2 rounded-lg flex items-center space-x-2 transition-all shadow-md" data-tab="mapa">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                        </svg>
+                        <span>Mapa</span>
+                    </button>
+                    <button class="btn-tab px-4 py-2 rounded-lg flex items-center space-x-2 transition-all" data-tab="datos">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        <span>Datos</span>
+                    </button>
+                    <button class="btn-tab px-4 py-2 rounded-lg flex items-center space-x-2 transition-all" data-tab="acerca">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Acerca de nosotros</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto px-4">
+        <!-- Tab: Mapa -->
+        <div id="tab-mapa" class="tab-content active">
+            <div class="bg-white rounded-xl shadow-lg p-6 transition-all duration-500">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">Mapa Interactivo</h2>
+                    <div class="flex items-center text-sm text-gray-500">
+                        <span id="contador-cuerpos">3 cuerpos de agua monitoreados</span>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <div class="flex flex-wrap gap-2">
+                        <button class="filter-btn active px-3 py-1.5 rounded-full border border-blue-500 text-blue-500 text-sm transition-all" data-tipo="todos">
+                            Todos
+                        </button>
+                        <button class="filter-btn px-3 py-1.5 rounded-full border border-blue-500 text-blue-500 text-sm transition-all" data-tipo="río">
+                            Ríos
+                        </button>
+                        <button class="filter-btn px-3 py-1.5 rounded-full border border-green-500 text-green-500 text-sm transition-all" data-tipo="lago">
+                            Lagos
+                        </button>
+                        <button class="filter-btn px-3 py-1.5 rounded-full border border-indigo-500 text-indigo-500 text-sm transition-all" data-tipo="océano">
+                            Océanos
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="h-[600px] w-full rounded-lg overflow-hidden relative">
+                    <div id="loading" class="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-80 z-10">
+                        <div class="flex flex-col items-center">
+                            <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                            <p class="mt-4 text-blue-600 font-medium">Cargando mapa...</p>
+                        </div>
+                    </div>
+                    
+                    <div id="map" class="relative h-full w-full"></div>
+                </div>
+                
+                <div class="mt-4 grid grid-cols-3 gap-4">
+                    <div class="bg-blue-50 p-3 rounded-lg flex items-center">
+                        <div class="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
+                        <span class="text-sm font-medium">Ríos</span>
+                    </div>
+                    <div class="bg-green-50 p-3 rounded-lg flex items-center">
+                        <div class="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
+                        <span class="text-sm font-medium">Lagos</span>
+                    </div>
+                    <div class="bg-indigo-50 p-3 rounded-lg flex items-center">
+                        <div class="w-3 h-3 rounded-full bg-indigo-500 mr-2"></div>
+                        <span class="text-sm font-medium">Océanos</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="detailsContainer" class="bg-white rounded-xl shadow-lg p-6 mt-6 hidden">
+                <!-- Aquí se mostrarán los detalles del cuerpo de agua seleccionado -->
+            </div>
+        </div>
+        
+        <!-- Tab: Datos -->
+        <div id="tab-datos" class="tab-content">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Datos de Monitoreo</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="stats-card bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl shadow">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold text-blue-800">Total Cuerpos de Agua</h3>
+                            <div class="bg-blue-500 p-2 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
+                                </svg>
+                            </div>
+                        </div>
+                        <p class="text-4xl font-bold text-blue-600 mt-4">7</p>
+                        <p class="text-sm text-blue-700 mt-2">Monitoreados activamente</p>
+                    </div>
+                    
+                    <div class="stats-card bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl shadow">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold text-green-800">Biodiversidad Alta</h3>
+                            <div class="bg-green-500 p-2 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                </svg>
+                            </div>
+                        </div>
+                        <p class="text-4xl font-bold text-green-600 mt-4">4</p>
+                        <p class="text-sm text-green-700 mt-2">Cuerpos de agua saludables</p>
+                    </div>
+                    
+                    <div class="stats-card bg-gradient-to-br from-red-50 to-red-100 p-6 rounded-xl shadow">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold text-red-800">Contaminación Media/Alta</h3>
+                            <div class="bg-red-500 p-2 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            </div>
+                        </div>
+                        <p class="text-4xl font-bold text-red-600 mt-4">4</p>
+                        <p class="text-sm text-red-700 mt-2">Requieren atención</p>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="py-3 px-4 text-left">Nombre</th>
+                                <th class="py-3 px-4 text-left">Tipo</th>
+                                <th class="py-3 px-4 text-left">Contaminación</th>
+                                <th class="py-3 px-4 text-left">Biodiversidad</th>
+                                <th class="py-3 px-4 text-left">Última Medición</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="border-b border-gray-200 hover:bg-gray-50">
+                                <td class="py-3 px-4">Río Amazonas</td>
+                                <td class="py-3 px-4">Río</td>
+                                <td class="py-3 px-4">Bajo</td>
+                                <td class="py-3 px-4">Alta</td>
+                                <td class="py-3 px-4">2025-05-15</td>
+                            </tr>
+                            <tr class="border-b border-gray-200 hover:bg-gray-50">
+                                <td class="py-3 px-4">Lago Titicaca</td>
+                                <td class="py-3 px-4">Lago</td>
+                                <td class="py-3 px-4">Medio</td>
+                                <td class="py-3 px-4">Media</td>
+                                <td class="py-3 px-4">2025-06-02</td>
+                            </tr>
+                            <tr class="border-b border-gray-200 hover:bg-gray-50">
+                                <td class="py-3 px-4">Océano Pacífico (Costa de Chile)</td>
+                                <td class="py-3 px-4">Océano</td>
+                                <td class="py-3 px-4">Medio-Alto</td>
+                                <td class="py-3 px-4">Media-Baja</td>
+                                <td class="py-3 px-4">2025-05-28</td>
+                            </tr>
+                            <tr class="border-b border-gray-200 hover:bg-gray-50">
+                                <td class="py-3 px-4">Río Orinoco</td>
+                                <td class="py-3 px-4">Río</td>
+                                <td class="py-3 px-4">Medio</td>
+                                <td class="py-3 px-4">Alta</td>
+                                <td class="py-3 px-4">2025-06-10</td>
+                            </tr>
+                            <tr class="border-b border-gray-200 hover:bg-gray-50">
+                                <td class="py-3 px-4">Lago de Maracaibo</td>
+                                <td class="py-3 px-4">Lago</td>
+                                <td class="py-3 px-4">Alto</td>
+                                <td class="py-3 px-4">Media</td>
+                                <td class="py-3 px-4">2025-05-20</td>
+                            </tr>
+                            <tr class="border-b border-gray-200 hover:bg-gray-50">
+                                <td class="py-3 px-4">Mar Caribe (Costa de Colombia)</td>
+                                <td class="py-3 px-4">Océano</td>
+                                <td class="py-3 px-4">Medio</td>
+                                <td class="py-3 px-4">Alta</td>
+                                <td class="py-3 px-4">2025-06-15</td>
+                            </tr>
+                            <tr class="border-b border-gray-200 hover:bg-gray-50">
+                                <td class="py-3 px-4">Río Paraná</td>
+                                <td class="py-3 px-4">Río</td>
+                                <td class="py-3 px-4">Medio-Bajo</td>
+                                <td class="py-3 px-4">Alta</td>
+                                <td class="py-3 px-4">2025-06-05</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tab: Acerca de -->
+        <div id="tab-acerca" class="tab-content">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Acerca del Observatorio</h2>
+                
+                <div class="prose max-w-none">
+                    <p class="mb-4">
+                        El Observatorio de Aguas es una iniciativa dedicada al monitoreo y análisis de cuerpos de agua en América Latina. 
+                        Nuestro objetivo es proporcionar datos actualizados sobre el estado de ríos, lagos y zonas costeras para informar 
+                        políticas públicas y promover la conservación de estos ecosistemas vitales.
+                    </p>
+                    
+                    <h3 class="text-xl font-semibold text-gray-700 mt-6 mb-3">Nuestra Misión</h3>
+                    <p class="mb-4">
+                        Monitorear, analizar y difundir información sobre el estado de los cuerpos de agua en América Latina, 
+                        contribuyendo a la toma de decisiones informadas para su conservación y uso sostenible.
+                    </p>
+                    
+                    <h3 class="text-xl font-semibold text-gray-700 mt-6 mb-3">Metodología</h3>
+                    <p class="mb-4">
+                        Utilizamos una combinación de datos satelitales, estaciones de monitoreo in situ y colaboraciones 
+                        con instituciones locales para recopilar información sobre parámetros físicos, químicos y biológicos 
+                        de los cuerpos de agua.
+                    </p>
+                    
+                    <h3 class="text-xl font-semibold text-gray-700 mt-6 mb-3">Contacto</h3>
+                    <p>
+                        Para más información o colaboraciones, contáctenos en: <a href="mailto:info@observatorioaguas.org" class="text-blue-600 hover:underline">info@observatorioaguas.org</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // Datos de cuerpos de agua
+        const cuerposDeAgua = [
+            {
+                id: 1,
+                nombre: 'Río Amazonas',
+                tipo: 'río',
+                ubicacion: [-3.4653, -62.2159],
+                nivelContaminacion: 'Bajo',
+                biodiversidad: 'Alta',
+                descripcion: 'El río más caudaloso del mundo, hogar de miles de especies.',
+                ultimaMedicion: '2025-05-15'
+            },
+            {
+                id: 2,
+                nombre: 'Lago Titicaca',
+                tipo: 'lago',
+                ubicacion: [-15.9254, -69.3354],
+                nivelContaminacion: 'Medio',
+                biodiversidad: 'Media',
+                descripcion: 'El lago navegable más alto del mundo.',
+                ultimaMedicion: '2025-06-02'
+            },
+            {
+                id: 3,
+                nombre: 'Océano Pacífico (Costa de Chile)',
+                tipo: 'océano',
+                ubicacion: [-33.0, -72.0], // Corregido a la costa real de Chile
+                nivelContaminacion: 'Medio-Alto',
+                biodiversidad: 'Media-Baja',
+                descripcion: 'Zona costera con importante actividad pesquera.',
+                ultimaMedicion: '2025-05-28'
+            },
+            {
+                id: 4,
+                nombre: 'Río Orinoco',
+                tipo: 'río',
+                ubicacion: [8.1436, -63.5488],
+                nivelContaminacion: 'Medio',
+                biodiversidad: 'Alta',
+                descripcion: 'Uno de los ríos más largos de Sudamérica, con gran diversidad de especies.',
+                ultimaMedicion: '2025-06-10'
+            },
+            {
+                id: 5,
+                nombre: 'Lago de Maracaibo',
+                tipo: 'lago',
+                ubicacion: [10.6427, -71.6456],
+                nivelContaminacion: 'Alto',
+                biodiversidad: 'Media',
+                descripcion: 'El lago más grande de Sudamérica, con importantes reservas petroleras.',
+                ultimaMedicion: '2025-05-20'
+            },
+            {
+                id: 6,
+                nombre: 'Mar Caribe (Costa de Colombia)',
+                tipo: 'océano',
+                ubicacion: [11.0041, -74.8070],
+                nivelContaminacion: 'Medio',
+                biodiversidad: 'Alta',
+                descripcion: 'Zona con arrecifes de coral y gran biodiversidad marina.',
+                ultimaMedicion: '2025-06-15'
+            },
+            {
+                id: 7,
+                nombre: 'Río Paraná',
+                tipo: 'río',
+                ubicacion: [-27.3648, -55.8813],
+                nivelContaminacion: 'Medio-Bajo',
+                biodiversidad: 'Alta',
+                descripcion: 'Segundo río más largo de Sudamérica, vital para el transporte y la energía.',
+                ultimaMedicion: '2025-06-05'
+            }
+        ];
+        
+        // Inicializar mapa
+        const map = L.map('map').setView([-15, -60], 3);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Función para obtener color según tipo
+        function getColorByType(tipo) {
+            switch (tipo.toLowerCase()) {
+                case 'río':
+                    return 'blue';
+                case 'lago':
+                    return 'green';
+                case 'océano':
+                    return 'indigo';
+                default:
+                    return 'gray';
+            }
+        }
+        
+        // Marcadores y filtrado
+        let marcadores = [];
+        let filtroActual = 'todos';
+        
+        function actualizarMarcadores() {
+            // Limpiar marcadores existentes
+            marcadores.forEach(marker => map.removeLayer(marker));
+            marcadores = [];
+            
+            // Filtrar cuerpos de agua
+            const cuerposFiltrados = filtroActual === 'todos' 
+                ? cuerposDeAgua 
+                : cuerposDeAgua.filter(cuerpo => cuerpo.tipo.toLowerCase() === filtroActual);
+            
+            // Actualizar contador
+            document.getElementById('contador-cuerpos').textContent = `${cuerposFiltrados.length} cuerpos de agua monitoreados`;
+            
+            // Añadir nuevos marcadores
+            cuerposFiltrados.forEach(cuerpo => {
+                const color = getColorByType(cuerpo.tipo);
+                
+                const customIcon = L.divIcon({
+                    className: `marker-${color}`,
+                    html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>`,
+                    iconSize: [12, 12],
+                    iconAnchor: [6, 6]
+                });
+                
+                const marker = L.marker(cuerpo.ubicacion, { icon: customIcon }).addTo(map);
+                marker.bindPopup(`
+                    <div class="marker-popup">
+                        <h3>${cuerpo.nombre}</h3>
+                        <p><strong>Tipo:</strong> ${cuerpo.tipo}</p>
+                        <p><strong>Contaminación:</strong> ${cuerpo.nivelContaminacion}</p>
+                        <p><strong>Biodiversidad:</strong> ${cuerpo.biodiversidad}</p>
+                        <p><strong>Última medición:</strong> ${cuerpo.ultimaMedicion}</p>
+                        <p class="mt-2">${cuerpo.descripcion}</p>
+                    </div>
+                `);
+                
+                marcadores.push(marker);
+            });
+        }
+        
+        // Configurar botones de filtro
+        document.querySelectorAll('.filter-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const tipo = this.getAttribute('data-tipo');
+                
+                // Actualizar UI
+                document.querySelectorAll('.filter-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                this.classList.add('active');
+                
+                // Actualizar filtro y marcadores
+                filtroActual = tipo;
+                actualizarMarcadores();
+            });
+        });
+        
+        // Configurar pestañas
+        document.querySelectorAll('.btn-tab').forEach(button => {
+            button.addEventListener('click', function() {
+                const tab = this.getAttribute('data-tab');
+                
+                // Actualizar UI de pestañas
+                document.querySelectorAll('.btn-tab').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                this.classList.add('active');
+                
+                // Mostrar contenido de pestaña
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    if (content.id === `tab-${tab}`) {
+                        content.classList.add('active');
+                    } else {
+                        content.classList.remove('active');
+                    }
+                });
+                
+                // Si cambiamos a la pestaña de mapa, actualizar tamaño
+                if (tab === 'mapa') {
+                    setTimeout(() => {
+                        map.invalidateSize();
+                    }, 100);
+                }
+            });
+        });
+        
+        // Inicializar marcadores
+        actualizarMarcadores();
+        
+        // Ocultar indicador de carga
+        document.getElementById('loading').style.display = 'none';
+    </script>
+</body>
+</html>
