@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export default function LoginModal({ open, onClose, onSubmit }) {
   const [email, setEmail] = useState('');
@@ -24,8 +25,8 @@ export default function LoginModal({ open, onClose, onSubmit }) {
     }
   };
 
-  return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
+  return createPortal(
+    <div className="modal-backdrop" role="dialog" aria-modal="true" style={{ zIndex: 9999, backgroundColor: 'rgba(15,23,42,0.35)' }}>
       <div className="bg-white shadow-xl rounded-2xl w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold text-slate-800">Iniciar sesión</h3>
@@ -64,6 +65,7 @@ export default function LoginModal({ open, onClose, onSubmit }) {
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
